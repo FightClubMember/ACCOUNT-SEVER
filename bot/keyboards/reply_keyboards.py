@@ -17,4 +17,4 @@ def get_home_keyboard() -> ReplyKeyboardMarkup:
         [KeyboardButton("⚙️ Settings"), KeyboardButton("📤 Export")],
         [KeyboardButton("📥 Import"), KeyboardButton("🗑 Trash")]
     ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, persistent=True)
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=True)
