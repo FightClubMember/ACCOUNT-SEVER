@@ -145,16 +145,16 @@ async def process_notes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     """Accepts notes from typed message and finishes the flow by saving."""
     notes = update.message.text.strip()
     context.user_data["add_notes"] = notes
-    return await save_account(update.message, context)
+    return await save_account(update, context)
 
 async def skip_notes_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Skips notes step and completes the flow by saving."""
     query = update.callback_query
     await query.answer()
     context.user_data["add_notes"] = None
-    return await save_account(query.message, context, is_callback=True)
+    return await save_account(update, context)
 
-async def save_account(message: Message, context: ContextTypes.DEFAULT_TYPE, is_callback: bool = False) -> int:
+async def save_account(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Saves the account details into the database and displays the final report."""
     email = context.user_data.get("add_email")
     pwd = context.user_data.get("add_password")
@@ -163,10 +163,10 @@ async def save_account(message: Message, context: ContextTypes.DEFAULT_TYPE, is_
     if not email or not pwd:
         # Unexpected error, abort
         err_msg = "❌ An unexpected error occurred. Aborting add flow."
-        if is_callback:
-            await message.edit_message_text(err_msg)
+        if update.callback_query:
+            await update.callback_query.edit_message_text(err_msg)
         else:
-            await message.reply_text(err_msg)
+            await update.message.reply_text(err_msg)
         return ConversationHandler.END
         
     try:
@@ -195,14 +195,15 @@ async def save_account(message: Message, context: ContextTypes.DEFAULT_TYPE, is_
             
         logger.info(f"Account saved successfully: ID #{account_id:05d}, Email: {email}")
         
+        import html
         success_text = (
-            "✅ *Saved Successfully*\n\n"
-            "*Email:*\n"
-            f"{email}\n\n"
-            "*Password Generated*\n\n"
-            "*Status:*\n"
+            "✅ <b>Saved Successfully</b>\n\n"
+            "<b>Email:</b>\n"
+            f"{html.escape(email)}\n\n"
+            "<b>Password Generated</b>\n\n"
+            "<b>Status:</b>\n"
             "Available\n\n"
-            "*ID:*\n"
+            "<b>ID:</b>\n"
             f"#00{account_id:03d}"
         )
         
@@ -215,18 +216,21 @@ async def save_account(message: Message, context: ContextTypes.DEFAULT_TYPE, is_
             except Exception as backup_err:
                 logger.error(f"Auto-backup failed: {backup_err}")
                 
-        if is_callback:
-            await message.edit_message_text(success_text, parse_mode="Markdown")
+        if update.callback_query:
+            await update.callback_query.edit_message_text(success_text, parse_mode="HTML")
         else:
-            await message.reply_text(success_text, parse_mode="Markdown", reply_markup=get_home_keyboard())
+            await update.message.reply_text(success_text, parse_mode="HTML", reply_markup=get_home_keyboard())
             
     except Exception as e:
         logger.error(f"Error saving account to database: {e}")
         err_msg = "❌ Database error. Failed to save account."
-        if is_callback:
-            await message.edit_message_text(err_msg)
-        else:
-            await message.reply_text(err_msg, reply_markup=get_home_keyboard())
+        try:
+            if update.callback_query:
+                await update.callback_query.edit_message_text(err_msg)
+            else:
+                await update.message.reply_text(err_msg, reply_markup=get_home_keyboard())
+        except Exception as send_err:
+            logger.error(f"Failed to send error message: {send_err}")
             
     # Clear session data
     context.user_data.pop("add_email", None)
