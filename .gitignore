@@ -1,0 +1,15 @@
+# Python files
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# Environment variables and local settings
+.env
+
+# Databases, secret keys, and backups
+*.db
+*.key
+bot/data/
+data/
