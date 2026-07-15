@@ -256,7 +256,7 @@ async def confirm_empty_trash_callback(update: Update, context: ContextTypes.DEF
             
         await query.edit_message_text(
             text="🗑 <b>Trash Bin (Soft Deleted Accounts)</b>\nStored for 30 days before permanent automatic deletion:",
-            reply_markup=get_trash_list_keyboard(accounts, page=1, total_pages),
+            reply_markup=get_trash_list_keyboard(accounts, 1, total_pages),
             parse_mode="HTML"
         )
 
