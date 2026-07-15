@@ -25,7 +25,13 @@ connect_args = {}
 if config.DATABASE_URL.startswith("postgresql+asyncpg"):
     connect_args = {"ssl": "require"}
 
-engine = create_async_engine(config.DATABASE_URL, connect_args=connect_args, echo=False)
+engine = create_async_engine(
+    config.DATABASE_URL,
+    connect_args=connect_args,
+    pool_pre_ping=True,
+    pool_recycle=30,
+    echo=False
+)
 
 # Async session factory
 async_session_maker = async_sessionmaker(
