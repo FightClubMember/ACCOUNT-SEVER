@@ -78,6 +78,49 @@ async def trash_cleanup_loop():
         # Sleep for 24 hours
         await asyncio.sleep(24 * 60 * 60)
 
+async def dummy_web_server():
+    """Starts a lightweight async TCP server to answer Render's port checks for free Web Services."""
+    import os
+    port_str = os.getenv("PORT")
+    if not port_str:
+        logger.info("PORT environment variable not found. Skipping dummy web server.")
+        return
+        
+    port = int(port_str)
+    
+    async def handle_client(reader, writer):
+        try:
+            await reader.read(1024)
+        except Exception:
+            pass
+            
+        response = (
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: text/plain\r\n"
+            "Content-Length: 12\r\n"
+            "Connection: close\r\n\r\n"
+            "Bot is alive"
+        )
+        try:
+            writer.write(response.encode())
+            await writer.drain()
+        except Exception:
+            pass
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except Exception:
+                pass
+                
+    try:
+        server = await asyncio.start_server(handle_client, "0.0.0.0", port)
+        logger.info(f"Dummy web server listening on port {port} for Render health check.")
+        async with server:
+            await server.serve_forever()
+    except Exception as e:
+        logger.error(f"Failed to start dummy web server on port {port}: {e}")
+
 async def post_init(application) -> None:
     """Startup initialization routine."""
     logger.info("Starting Account Vault initialization...")
@@ -85,6 +128,8 @@ async def post_init(application) -> None:
     await init_db()
     # Launch background trash cleaner loop
     asyncio.create_task(trash_cleanup_loop())
+    # Launch dummy web server for Render health checks
+    asyncio.create_task(dummy_web_server())
     logger.info("Account Vault initialization completed successfully.")
 
 @admin_only
