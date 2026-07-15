@@ -20,8 +20,12 @@ if config.DATABASE_URL.startswith("sqlite+aiosqlite:///"):
     if path.parent:
         path.parent.mkdir(parents=True, exist_ok=True)
 
-# Create async engine
-engine = create_async_engine(config.DATABASE_URL, echo=False)
+# Create async engine with SSL context if using PostgreSQL
+connect_args = {}
+if config.DATABASE_URL.startswith("postgresql+asyncpg"):
+    connect_args = {"ssl": "require"}
+
+engine = create_async_engine(config.DATABASE_URL, connect_args=connect_args, echo=False)
 
 # Async session factory
 async_session_maker = async_sessionmaker(
