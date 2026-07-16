@@ -42,6 +42,9 @@ async def start_add_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 @admin_only
 async def process_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Validates the input email and prompts the password generation step."""
+    # Store user sended message ID for auto-delete
+    context.user_data.setdefault("messages_to_delete", []).append(update.message.message_id)
+    
     email = update.message.text.strip()
     
     # 1. Validate email format
@@ -143,6 +146,9 @@ async def use_password_callback(update: Update, context: ContextTypes.DEFAULT_TY
 @admin_only
 async def process_notes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Accepts notes from typed message and finishes the flow by saving."""
+    # Store user sended message ID for auto-delete
+    context.user_data.setdefault("messages_to_delete", []).append(update.message.message_id)
+    
     notes = update.message.text.strip()
     context.user_data["add_notes"] = notes
     return await save_account(update, context)
@@ -232,6 +238,15 @@ async def save_account(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         except Exception as send_err:
             logger.error(f"Failed to send error message: {send_err}")
             
+    # Delete user sended messages for privacy
+    msg_ids = context.user_data.pop("messages_to_delete", [])
+    chat_id = update.effective_chat.id
+    for msg_id in msg_ids:
+        try:
+            await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+        except Exception as delete_err:
+            logger.warning(f"Could not delete message {msg_id}: {delete_err}")
+            
     # Clear session data
     context.user_data.pop("add_email", None)
     context.user_data.pop("add_password", None)
@@ -242,6 +257,15 @@ async def save_account(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 @admin_only
 async def cancel_add_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Cancels the Add Account conversation flow."""
+    # Delete user sended messages for privacy
+    msg_ids = context.user_data.pop("messages_to_delete", [])
+    chat_id = update.effective_chat.id
+    for msg_id in msg_ids:
+        try:
+            await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+        except Exception as delete_err:
+            logger.warning(f"Could not delete message {msg_id}: {delete_err}")
+
     # Check if this is from command or callback button
     if update.callback_query:
         query = update.callback_query
@@ -300,6 +324,9 @@ async def start_custom_add_flow(update: Update, context: ContextTypes.DEFAULT_TY
 @admin_only
 async def process_custom_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Validates email and prompts for a custom password."""
+    # Store user sended message ID for auto-delete
+    context.user_data.setdefault("messages_to_delete", []).append(update.message.message_id)
+    
     email = update.message.text.strip()
     
     # 1. Validate email format
@@ -340,6 +367,9 @@ async def process_custom_email(update: Update, context: ContextTypes.DEFAULT_TYP
 @admin_only
 async def process_custom_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Accepts custom password and prompts for optional notes."""
+    # Store user sended message ID for auto-delete
+    context.user_data.setdefault("messages_to_delete", []).append(update.message.message_id)
+    
     password = update.message.text.strip()
     if not password:
         await update.message.reply_text("❌ Password cannot be empty. Please enter a valid password:")
