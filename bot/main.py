@@ -31,7 +31,7 @@ if not config.ADMIN_ID:
 
 # Import Handlers
 from bot.handlers.start import start_command
-from bot.handlers.add_account import get_add_account_handler
+from bot.handlers.add_account import get_add_account_handler, get_custom_add_handler, start_custom_add_flow
 from bot.handlers.fetch import (
     fetch_command,
     fetch_callback_handler,
@@ -151,6 +151,7 @@ def main():
     
     # 1. Register Conversation Handlers (Add, Search)
     application.add_handler(get_add_account_handler())
+    application.add_handler(get_custom_add_handler())
     application.add_handler(get_search_handler())
     
     # 2. Register Global Command Handlers
@@ -163,6 +164,7 @@ def main():
     application.add_handler(CommandHandler("export", export_command))
     application.add_handler(CommandHandler("import", import_command))
     application.add_handler(CommandHandler("trash", trash_command))
+    application.add_handler(CommandHandler("custom_add", start_custom_add_flow))
     
     # 3. Register Reply Keyboard Button Text Handlers
     application.add_handler(MessageHandler(filters.Regex("^🎲 Fetch Account$"), fetch_command))
@@ -172,6 +174,7 @@ def main():
     application.add_handler(MessageHandler(filters.Regex("^📤 Export$"), export_command))
     application.add_handler(MessageHandler(filters.Regex("^📥 Import$"), import_command))
     application.add_handler(MessageHandler(filters.Regex("^🗑 Trash$"), trash_command))
+    application.add_handler(MessageHandler(filters.Regex("^✍️ Custom Add$"), start_custom_add_flow))
     
     # 4. Intercept state-based inputs (notes editing, import document uploads)
     application.add_handler(MessageHandler(

@@ -11,7 +11,7 @@ def get_home_keyboard() -> ReplyKeyboardMarkup:
     - Row 5: Import | Trash
     """
     keyboard = [
-        [KeyboardButton("➕ Add Account")],
+        [KeyboardButton("➕ Add Account"), KeyboardButton("✍️ Custom Add")],
         [KeyboardButton("🎲 Fetch Account"), KeyboardButton("🔍 Search")],
         [KeyboardButton("📂 Accounts"), KeyboardButton("📊 Stats")],
         [KeyboardButton("⚙️ Settings"), KeyboardButton("📤 Export")],

@@ -25,7 +25,7 @@ from sqlalchemy import select
 logger = logging.getLogger(__name__)
 
 # Conversation States
-EMAIL, PASSWORD_CONFIRM, NOTES = range(3)
+EMAIL, PASSWORD_CONFIRM, NOTES, CUSTOM_EMAIL, CUSTOM_PASSWORD, CUSTOM_NOTES = range(6)
 
 @admin_only
 async def start_add_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -276,6 +276,100 @@ def get_add_account_handler() -> ConversationHandler:
                 CallbackQueryHandler(cancel_add_flow, pattern="^pwd:cancel$")
             ],
             NOTES: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, process_notes),
+                CallbackQueryHandler(skip_notes_callback, pattern="^add_notes:skip$")
+            ]
+        },
+        fallbacks=[
+            CommandHandler("cancel", cancel_add_flow),
+            MessageHandler(filters.Regex("^❌ Cancel$"), cancel_add_flow)
+        ],
+        allow_reentry=True
+    )
+
+@admin_only
+async def start_custom_add_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Begins the Custom Account addition flow by asking for email."""
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    await update.message.reply_text(
+        text="✍️ *Custom Account Addition*\n\n📧 *Send Email Address*:",
+        parse_mode="Markdown"
+    )
+    return CUSTOM_EMAIL
+
+@admin_only
+async def process_custom_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Validates email and prompts for a custom password."""
+    email = update.message.text.strip()
+    
+    # 1. Validate email format
+    if not validate_email(email):
+        await update.message.reply_text(
+            text="❌ *Invalid Email Format*\n\nPlease send a valid email address or type /cancel to abort:",
+            parse_mode="Markdown"
+        )
+        return CUSTOM_EMAIL
+        
+    # 2. Check for duplicate email in database (if protection is enabled)
+    async with async_session_maker() as session:
+        result = await session.execute(select(Settings).where(Settings.id == 1))
+        settings = result.scalar_one()
+        
+        if settings.duplicate_email_protection:
+            db_res = await session.execute(
+                select(Account).where(Account.email == email, Account.deleted_at.is_(None))
+            )
+            existing = db_res.scalars().first()
+            if existing:
+                await update.message.reply_text(
+                    text="❌ *Duplicate Email Address*\n\nThis email already exists in your active account vault. Please send a different email address or type /cancel to abort:",
+                    parse_mode="Markdown"
+                )
+                return CUSTOM_EMAIL
+                
+    # Save email in context
+    context.user_data["add_email"] = email
+    
+    # Prompt for custom password
+    await update.message.reply_text(
+        text="🔑 *Send Custom Password*\n\nPlease type the password you want to store for this account:",
+        parse_mode="Markdown"
+    )
+    return CUSTOM_PASSWORD
+
+@admin_only
+async def process_custom_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Accepts custom password and prompts for optional notes."""
+    password = update.message.text.strip()
+    if not password:
+        await update.message.reply_text("❌ Password cannot be empty. Please enter a valid password:")
+        return CUSTOM_PASSWORD
+        
+    context.user_data["add_password"] = password
+    
+    # Prompt for optional notes
+    await update.message.reply_text(
+        text="📝 *Add Notes (Optional)*\n\nPlease send any notes/descriptions for this account, or click the button below to skip this step:",
+        reply_markup=get_skip_notes_keyboard(),
+        parse_mode="Markdown"
+    )
+    return CUSTOM_NOTES
+
+def get_custom_add_handler() -> ConversationHandler:
+    """Returns the ConversationHandler configuration for the custom add flow."""
+    return ConversationHandler(
+        entry_points=[
+            MessageHandler(filters.Regex("^✍️ Custom Add$"), start_custom_add_flow),
+            CommandHandler("custom_add", start_custom_add_flow)
+        ],
+        states={
+            CUSTOM_EMAIL: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, process_custom_email)
+            ],
+            CUSTOM_PASSWORD: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, process_custom_password)
+            ],
+            CUSTOM_NOTES: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, process_notes),
                 CallbackQueryHandler(skip_notes_callback, pattern="^add_notes:skip$")
             ]
